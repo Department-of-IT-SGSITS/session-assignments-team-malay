@@ -1,0 +1,28 @@
+# CC Lab Project — Cloud Based Attendance
+
+**Author:** Malay Singh Bisht  
+**Project:** Cloud-enabled Attendance System (Firebase: Functions + Firestore + Hosting)
+
+## Overview
+This is a serverless attendance system where:
+- **Teacher** generates a short-lived QR session.
+- **Students** scan the QR (or paste the session token) to check in.
+- **Attendance** records are stored in Firestore.
+- **Dashboard** shows Present vs Absent and lists records.
+
+## Tech Stack
+- Frontend: HTML, CSS, vanilla JS, Chart.js (for charts)
+- Backend: Firebase Cloud Functions (Node.js)
+- Database: Firestore (Firebase)
+- Local testing: Firebase Emulators (Hosting, Functions, Firestore)
+- Hosting & Deploy: Firebase Hosting + Functions (one command deploy)
+
+## How to run locally (emulator)
+1. Install Node.js & Firebase CLI.
+2. From project root:
+   ```bash
+   cd "CC Lab Project Cloud based Attendance"
+   cd functions
+   npm install
+   cd ..
+   firebase emulators:start
