@@ -1,0 +1,39 @@
+{
+  "functions": {
+    "source": "functions"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/api/**",
+        "function": "api"
+      }
+    ]
+  },
+  "emulators": {
+    "functions": {
+      "port": 5010
+    },
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8070
+    },
+    "database": {
+      "host": "127.0.0.1",
+      "port": 9070
+    },
+    "hosting": {
+      "port": 5050
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4050
+    }
+  }
+}

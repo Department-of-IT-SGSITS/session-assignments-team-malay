@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Scanner — Student</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: "Segoe UI", Arial, sans-serif; background:#f6f8fb; padding:20px; }
+    .wrap { max-width:720px; margin:20px auto; background:white; padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.06); text-align:center; }
+    h2{ margin:0 0 10px 0; color:#222; }
+    video{ width:320px; height:240px; border-radius:8px; border:1px solid #ddd; background:#000; }
+    button, input { padding:10px 12px; margin:8px; border-radius:8px; border:1px solid #ddd; }
+    button{ background:#0b74ff; color:white; border:none; cursor:pointer; }
+    #log { text-align:left; white-space:pre-wrap; max-height:220px; overflow:auto; background:#fbfcfe; padding:8px; border-radius:8px; margin-top:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>Student Scanner (demo)</h2>
+    <video id="video" muted></video><br/>
+    <button id="startBtn">Start Camera & Scan</button>
+    <button id="stopBtn">Stop</button>
+
+    <div style="margin-top:12px">
+      <label style="display:block;margin-bottom:6px">Or paste session token (for manual check-in)</label>
+      <input id="tokenInput" style="width:100%;max-width:560px" placeholder="paste session token here" />
+      <button id="manualBtn">Manual check-in</button>
+    </div>
+
+    <div id="log">Logs will appear here...</div>
+  </div>
+
+  <script type="module">
+    import QrScanner from "https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js";
+    const video = document.getElementById('video');
+    const logEl = document.getElementById('log');
+    //const funcBase = "/__/functions/v1/api";
+    // const funcBase="/api";
+    const funcBase = "http://127.0.0.1:5010/cc-lab-project-attendance/us-central1/api";
+
+
+    function log(msg) {
+      logEl.innerText = (new Date().toLocaleTimeString()) + ' - ' + msg + '\n' + logEl.innerText;
+    }
+
+    let scanner;
+    document.getElementById('startBtn').onclick = async () => {
+      try {
+        scanner = new QrScanner(video, result => onDecoded(result));
+        await scanner.start();
+        log('Scanner started. Point camera at QR.');
+      } catch (e) {
+        log('Camera error: ' + e);
+      }
+    };
+    document.getElementById('stopBtn').onclick = () => { if (scanner) scanner.stop(); log('Scanner stopped.'); };
+
+    async function onDecoded(decoded) {
+      log('QR decoded: ' + decoded);
+      try {
+        const payload = JSON.parse(decoded);
+        const sessionToken = payload.sessionToken;
+        await callCheckin(sessionToken);
+      } catch (err) {
+        log('Invalid QR payload: ' + err);
+      } finally { if (scanner) scanner.stop(); }
+    }
+
+    async function callCheckin(sessionToken) {
+      const body = { sessionToken, studentId: "student_demo_1" }; // emulator demo studentId
+      log('Calling checkin...');
+      try {
+        const r = await fetch(funcBase + "/checkin", {
+          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if (r.ok) log('Checkin OK: ' + JSON.stringify(j));
+        else log('Checkin error: ' + JSON.stringify(j));
+      } catch (e) {
+        log('Network error: ' + e);
+      }
+    }
+
+    document.getElementById('manualBtn').onclick = () => {
+      const token = document.getElementById('tokenInput').value.trim();
+      if (!token) { alert('Paste token'); return; }
+      callCheckin(token);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Teacher — Create Session</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+    }
+    h2 { text-align:center; color:#222; margin-bottom:8px; }
+    p.lead { text-align:center; color:#555; margin-top:0; margin-bottom:18px; }
+    label { display:block; margin-top:12px; color:#444; font-weight:600; }
+    input { width:100%; padding:10px; margin-top:6px; border:1px solid #e2e6ea; border-radius:8px; }
+    button {
+      background:#0b74ff; color:white;
+      padding:12px 16px; border:none; border-radius:10px;
+      margin-top:16px; width:100%;
+      font-size:15px; cursor:pointer;
+    }
+    button:hover { background:#065fd6; }
+    #qr img { display:block; margin:12px auto; max-width:280px; }
+    pre { background:#f8f9fa; padding:12px; border-radius:8px; font-size:12px; overflow:auto; color:#333; }
+    .muted { color:#777; font-size:13px; text-align:center; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Teacher — Create Session</h2>
+    <p class="lead">Click to generate a short-lived session token (QR) for students to scan.</p>
+
+    <label>Course ID</label>
+    <input id="courseId" placeholder="e.g., CS101" value="CS101" />
+
+    <label>Start time (ms since epoch) — leave blank to use now</label>
+    <input id="startTs" placeholder="leave blank to use now" />
+
+    <label>Duration (minutes)</label>
+    <input id="duration" value="60" />
+
+    <button id="createBtn">Create Session & Generate QR</button>
+
+    <div id="result" style="margin-top:16px;display:none">
+      <h3>Session created</h3>
+      <label>Session Token (copy if needed)</label>
+      <pre id="sessionToken"></pre>
+      <div id="qr"></div>
+      <p class="muted">Open <code>/scanner.html</code> on a phone and scan the QR or paste the token in the scanner input.</p>
+    </div>
+  </div>
+
+  <!-- QR library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+
+  <script>
+    // When using emulator + hosting local, functions are proxied under /__/functions/v1
+    //const funcBase = "/__/functions/v1/api"; replaced
+    // nahi chala bhai const funcBase="/api";
+    const funcBase = "http://127.0.0.1:5010/cc-lab-project-attendance/us-central1/api";
+
+    document.getElementById('createBtn').onclick = async () => {
+      const courseId = document.getElementById('courseId').value.trim();
+      let startTs = document.getElementById('startTs').value.trim();
+      const duration = Number(document.getElementById('duration').value || 60);
+      if (!courseId) { alert('Enter courseId'); return; }
+      if (!startTs) startTs = Date.now();
+      const payload = { courseId, startTs: Number(startTs), durationMinutes: duration };
+      try {
+        const res = await fetch(funcBase + "/createSession", {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const j = await res.json();
+        if (!res.ok) { alert('Error: ' + (j.error || JSON.stringify(j))); return; }
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('sessionToken').textContent = j.sessionToken;
+        const qrPayload = JSON.stringify({ sessionToken: j.sessionToken });
+        QRCode.toDataURL(qrPayload).then(url => {
+          document.getElementById('qr').innerHTML = `<img src="${url}" alt="QR" />`;
+        });
+      } catch (err) {
+        alert('Network error: ' + err);
+      }
+    };
+  </script>
+</body>
+</html>
