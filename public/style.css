@@ -1,52 +1,29 @@
-body {
-  font-family: "Poppins", sans-serif;
-  background: #f1f5f9;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
+/* style.css - clean UI for Teacher, Scanner, Dashboard */
+:root{
+  --bg:#f3f7fb; --card:#fff; --primary:#1e6fff; --accent:#06b6d4;
+  --muted:#6b7280; --success:#16a34a; --danger:#ef4444;
+  font-family: Inter, Roboto, "Segoe UI", Arial, sans-serif;
 }
-
-h1, h2 {
-  color: #2563eb;
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#071029}
+.container{max-width:920px;margin:28px auto;padding:18px}
+.card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(12,30,60,0.06);margin-bottom:18px}
+h1{margin:0 0 12px;color:var(--primary);font-size:28px}
+.small{font-size:14px;color:var(--muted);margin-bottom:8px}
+label{display:block;margin:10px 0 6px;font-weight:600}
+input[type=text], input[type=number], select, textarea{
+  width:100%;padding:10px;border:1px solid #e6eef8;border-radius:8px;font-size:14px;background:#fafbfd;
 }
-
-.container {
-  background: white;
-  padding: 30px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 90%;
-  max-width: 600px;
-  text-align: center;
-}
-
-button {
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  margin: 10px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: 0.2s ease;
-}
-
-button:hover {
-  background-color: #1e40af;
-}
-
-a {
-  text-decoration: none;
-  color: inherit;
-}
-
-.chart-container {
-  width: 400px;
-  height: 400px;
-  margin: auto;
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.col{flex:1;min-width:140px}
+.btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--primary);color:#fff;border:none;cursor:pointer;margin:6px 6px 0;font-weight:600}
+.btn.grey{background:#eef2f7;color:var(--primary)}
+#qrcode{padding:8px;background:#fafafa;border-radius:8px;display:inline-block}
+.log{background:#f8fafc;padding:10px;border-radius:8px;margin-top:12px;max-height:220px;overflow:auto;font-size:13px;color:#071029}
+.status-ok{color:var(--success);font-weight:700}
+.status-bad{color:var(--danger);font-weight:700}
+footer{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+@media (max-width:640px){
+  .container{padding:12px;margin:8px}
+  h1{font-size:22px}
 }

@@ -1,103 +1,180 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>Teacher — Create Session</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: "Segoe UI", Arial, sans-serif;
-      background: #f0f2f5;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .card {
-      width: 100%;
-      max-width: 680px;
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.06);
-    }
-    h2 { text-align:center; color:#222; margin-bottom:8px; }
-    p.lead { text-align:center; color:#555; margin-top:0; margin-bottom:18px; }
-    label { display:block; margin-top:12px; color:#444; font-weight:600; }
-    input { width:100%; padding:10px; margin-top:6px; border:1px solid #e2e6ea; border-radius:8px; }
-    button {
-      background:#0b74ff; color:white;
-      padding:12px 16px; border:none; border-radius:10px;
-      margin-top:16px; width:100%;
-      font-size:15px; cursor:pointer;
-    }
-    button:hover { background:#065fd6; }
-    #qr img { display:block; margin:12px auto; max-width:280px; }
-    pre { background:#f8f9fa; padding:12px; border-radius:8px; font-size:12px; overflow:auto; color:#333; }
-    .muted { color:#777; font-size:13px; text-align:center; margin-top:8px; }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Teacher — Create Session</title>
+    
+    <style>
+        /* style.css - clean UI for Teacher, Scanner, Dashboard */
+        :root{
+            --bg:#f3f7fb; --card:#fff; --primary:#1e6fff; --accent:#06b6d4;
+            --muted:#6b7280; --success:#16a34a; --danger:#ef4444;
+            font-family: Inter, Roboto, "Segoe UI", Arial, sans-serif;
+        }
+        *{box-sizing:border-box}
+        body{margin:0;background:var(--bg);color:#071029}
+        .container{max-width:920px;margin:28px auto;padding:18px}
+        .card{background:var(--card);border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(12,30,60,0.06);margin-bottom:18px}
+        h1{margin:0 0 12px;color:var(--primary);font-size:28px}
+        .small{font-size:14px;color:var(--muted);margin-bottom:8px}
+        label{display:block;margin:10px 0 6px;font-weight:600}
+        input[type=text], input[type=number], select, textarea{
+            width:100%;padding:10px;border:1px solid #e6eef8;border-radius:8px;font-size:14px;background:#fafbfd;
+        }
+        .row{display:flex;gap:10px;flex-wrap:wrap}
+        .col{flex:1;min-width:140px}
+        .btn{display:inline-block;padding:10px 16px;border-radius:10px;background:var(--primary);color:#fff;border:none;cursor:pointer;margin:6px 6px 0;font-weight:600}
+        .btn.grey{background:#eef2f7;color:var(--primary)}
+        #qrcode{padding:8px;background:#fafafa;border-radius:8px;display:inline-block}
+        .log{background:#f8fafc;padding:10px;border-radius:8px;margin-top:12px;max-height:220px;overflow:auto;font-size:13px;color:#071029}
+        .status-ok{color:var(--success);font-weight:700}
+        .status-bad{color:var(--danger);font-weight:700}
+        footer{font-size:12px;color:var(--muted);text-align:center;margin-top:8px}
+        @media (max-width:640px){
+            .container{padding:12px;margin:8px}
+            h1{font-size:22px}
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h2>Teacher — Create Session</h2>
-    <p class="lead">Click to generate a short-lived session token (QR) for students to scan.</p>
+    <div class="container">
+        <div class="card">
+            <h1>Teacher — Create Attendance Session</h1>
+            <div class="small">Set classroom location (optional) &amp; create session. Show QR to students.</div>
 
-    <label>Course ID</label>
-    <input id="courseId" placeholder="e.g., CS101" value="CS101" />
+            <label>Course ID</label>
+            <input id="courseId" type="text" placeholder="e.g. CS101">
 
-    <label>Start time (ms since epoch) — leave blank to use now</label>
-    <input id="startTs" placeholder="leave blank to use now" />
+            <div class="row">
+                <div class="col">
+                    <label>Class Geo (lat,lon)</label>
+                    <input id="locInput" type="text" placeholder="latitude,longitude (or use my location)">
+                </div>
+                <div style="min-width:140px">
+                    <label>Radius (meters)</label>
+                    <input id="radius" type="number" value="120">
+                </div>
+            </div>
 
-    <label>Duration (minutes)</label>
-    <input id="duration" value="60" />
+            <div style="margin-top:10px">
+                <button id="btnUseLoc" class="btn grey">Use my current location</button>
+                <button id="btnCreate" class="btn">Create Session &amp; Generate QR</button>
+            </div>
 
-    <button id="createBtn">Create Session & Generate QR</button>
+            <div style="margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <div id="qrcode"></div>
+                <div style="flex:1">
+                    <div><strong>Session Token</strong></div>
+                    <input id="sessionToken" type="text" readonly style="font-family:monospace;background:#f7fafc">
+                    <div class="small" id="sessionInfo">No session yet</div>
+                </div>
+            </div>
 
-    <div id="result" style="margin-top:16px;display:none">
-      <h3>Session created</h3>
-      <label>Session Token (copy if needed)</label>
-      <pre id="sessionToken"></pre>
-      <div id="qr"></div>
-      <p class="muted">Open <code>/scanner.html</code> on a phone and scan the QR or paste the token in the scanner input.</p>
+            <div class="log" id="logArea"></div>
+        </div>
+
+        <div class="card" style="text-align:center">
+            <button id="openDashboard" class="btn grey">Open Dashboard</button>
+            <button id="openScanner" class="btn grey">Open Scanner (phone)</button>
+        </div>
+
+        <footer>Cloud Attendance — Teacher UI</footer>
     </div>
-  </div>
 
-  <!-- QR library -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script>
+        /* CONFIG */
+        const PROJECT_ID = 'cc-lab-project-attendance';
+        const DEFAULT_FUNCTIONS_PORT = 5010;
 
-  <script>
-    // When using emulator + hosting local, functions are proxied under /__/functions/v1
-    //const funcBase = "/__/functions/v1/api"; replaced
-    // nahi chala bhai const funcBase="/api";
-    const funcBase = "http://127.0.0.1:5010/cc-lab-project-attendance/us-central1/api";
+        function detectFuncBase() {
+            const host = window.location.hostname;
+            if (host === '127.0.0.1' || host === 'localhost' || host.startsWith('192.168.') || host.startsWith('10.')) {
+                return `http://${host}:${DEFAULT_FUNCTIONS_PORT}/${PROJECT_ID}/us-central1/api`;
+            }
+            return `https://us-central1-${PROJECT_ID}.cloudfunctions.net/api`;
+        }
+        const FUNC_BASE = detectFuncBase();
 
-    document.getElementById('createBtn').onclick = async () => {
-      const courseId = document.getElementById('courseId').value.trim();
-      let startTs = document.getElementById('startTs').value.trim();
-      const duration = Number(document.getElementById('duration').value || 60);
-      if (!courseId) { alert('Enter courseId'); return; }
-      if (!startTs) startTs = Date.now();
-      const payload = { courseId, startTs: Number(startTs), durationMinutes: duration };
-      try {
-        const res = await fetch(funcBase + "/createSession", {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
-        });
-        const j = await res.json();
-        if (!res.ok) { alert('Error: ' + (j.error || JSON.stringify(j))); return; }
-        document.getElementById('result').style.display = 'block';
-        document.getElementById('sessionToken').textContent = j.sessionToken;
-        const qrPayload = JSON.stringify({ sessionToken: j.sessionToken });
-        QRCode.toDataURL(qrPayload).then(url => {
-          document.getElementById('qr').innerHTML = `<img src="${url}" alt="QR" />`;
-        });
-      } catch (err) {
-        alert('Network error: ' + err);
-      }
-    };
-  </script>
+        /* LOG */
+        const logArea = document.getElementById('logArea');
+        function log(msg, level='info'){
+            const p = document.createElement('div');
+            p.innerText = (new Date()).toLocaleTimeString() + ' - ' + msg;
+            if (level === 'err') p.style.color = 'red';
+            logArea.prepend(p);
+        }
+
+        /* GEO & QR */
+        document.getElementById('btnUseLoc').onclick = () => {
+            if (!navigator.geolocation) { alert('Geolocation not supported'); return; }
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude.toFixed(6), lon = pos.coords.longitude.toFixed(6);
+                document.getElementById('locInput').value = `${lat},${lon}`;
+                log(`Location set: ${lat},${lon}`);
+            }, err => {
+                alert('Location denied/unavailable');
+                log('Location denied');
+            }, { enableHighAccuracy:true, timeout:10000 });
+        };
+
+        function showQRCode(text){
+            const el = document.getElementById('qrcode');
+            el.innerHTML = '';
+            new QRCode(el, { text, width:160, height:160 });
+        }
+
+        async function createSession() {
+            const courseId = document.getElementById('courseId').value.trim();
+            const locText = document.getElementById('locInput').value.trim();
+            const radius = parseInt(document.getElementById('radius').value || '120', 10);
+            if (!courseId) { alert('Enter Course ID'); return; }
+
+            let location = null;
+            if (locText) {
+                const parts = locText.split(',');
+                if (parts.length === 2) location = { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) };
+            }
+
+            const payload = { courseId, location, thresholdMeters: radius };
+            log('Creating session...');
+
+            try {
+                const res = await fetch(FUNC_BASE + '/createSession', {
+                    method: 'POST',
+                    headers: { 'Content-Type':'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const text = await res.text();
+                let json;
+                try { json = JSON.parse(text); }
+                catch(e) {
+                    log('Response was not JSON. Server returned HTML or error. See console.', 'err');
+                    console.error('Non-JSON response:', text);
+                    alert('Server error: invalid response (check functions/emulator).');
+                    return;
+                }
+
+                if (!json.ok) { log('CreateSession failed: ' + JSON.stringify(json), 'err'); alert('Create failed: ' + (json.error||'unknown')); return; }
+                const token = json.sessionId || json.token || (json.session && json.session.token);
+                document.getElementById('sessionToken').value = token;
+                document.getElementById('sessionInfo').innerText = `Session for ${courseId} (radius ${radius}m)`;
+                showQRCode(token);
+                log('Session created: ' + token);
+            } catch (err) {
+                console.error(err);
+                log('Network/fetch failed: ' + err.message, 'err');
+                alert('Network error: ' + err.message);
+            }
+        }
+
+        document.getElementById('btnCreate').onclick = createSession;
+        document.getElementById('openDashboard').onclick = () => window.open('/dashboard.html','_blank');
+        document.getElementById('openScanner').onclick = () => window.open('/scanner.html','_blank');
+
+        log('Teacher UI ready. FUNC_BASE=' + FUNC_BASE);
+    </script>
 </body>
 </html>

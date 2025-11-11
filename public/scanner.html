@@ -1,92 +1,173 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8"/>
-  <title>Scanner — Student</title>
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student Scanner</title>
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: "Segoe UI", Arial, sans-serif; background:#f6f8fb; padding:20px; }
-    .wrap { max-width:720px; margin:20px auto; background:white; padding:18px; border-radius:12px; box-shadow:0 8px 20px rgba(0,0,0,0.06); text-align:center; }
-    h2{ margin:0 0 10px 0; color:#222; }
-    video{ width:320px; height:240px; border-radius:8px; border:1px solid #ddd; background:#000; }
-    button, input { padding:10px 12px; margin:8px; border-radius:8px; border:1px solid #ddd; }
-    button{ background:#0b74ff; color:white; border:none; cursor:pointer; }
-    #log { text-align:left; white-space:pre-wrap; max-height:220px; overflow:auto; background:#fbfcfe; padding:8px; border-radius:8px; margin-top:12px; }
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f3f6fb;margin:0}
+    .container{max-width:900px;margin:28px auto;padding:16px}
+    .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(12,30,60,.06)}
+    h1{margin:0 0 12px;color:#1e6fff}
+    label{font-weight:600;margin-top:8px;display:block}
+    input{width:100%;padding:10px;border:1px solid #e5ecf5;border-radius:8px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .col{flex:1;min-width:160px}
+    .btn{padding:10px 14px;border:none;border-radius:10px;background:#1e6fff;color:#fff;font-weight:600;cursor:pointer;margin-top:10px}
+    .btn.grey{background:#eef2f7;color:#1e6fff}
+    video{width:340px;height:255px;border-radius:8px;border:1px solid #e5ecf5;background:#000}
+    #log{margin-top:12px;background:#f8fafc;border-radius:8px;padding:10px;max-height:240px;overflow:auto;font-family:ui-monospace,Consolas,monospace;font-size:13px}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h2>Student Scanner (demo)</h2>
-    <video id="video" muted></video><br/>
-    <button id="startBtn">Start Camera & Scan</button>
-    <button id="stopBtn">Stop</button>
+  <div class="container">
+    <div class="card">
+      <h1>Student Scanner</h1>
 
-    <div style="margin-top:12px">
-      <label style="display:block;margin-bottom:6px">Or paste session token (for manual check-in)</label>
-      <input id="tokenInput" style="width:100%;max-width:560px" placeholder="paste session token here" />
-      <button id="manualBtn">Manual check-in</button>
+      <div class="row">
+        <div class="col">
+          <label>Student Name</label>
+          <input id="studentName" placeholder="Full name">
+        </div>
+        <div class="col">
+          <label>Enrollment / Student ID</label>
+          <input id="studentId" placeholder="0801it221145">
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <button id="saveBtn" class="btn">Save Info</button>
+        <button id="startBtn" class="btn grey">Start Camera & Scan</button>
+        <button id="stopBtn" class="btn grey">Stop</button>
+      </div>
+
+      <div style="margin-top:10px">
+        <video id="video" muted playsinline></video>
+      </div>
+
+      <div style="margin-top:12px">
+        <label>Or paste session token (manual)</label>
+        <input id="manualToken" placeholder="paste session token">
+        <button id="manualBtn" class="btn">Manual check-in</button>
+      </div>
+
+      <div id="log">Logs will appear here...</div>
     </div>
-
-    <div id="log">Logs will appear here...</div>
   </div>
 
+  <!-- QrScanner (the one that worked for you) -->
   <script type="module">
     import QrScanner from "https://unpkg.com/qr-scanner@1.4.2/qr-scanner.min.js";
-    const video = document.getElementById('video');
-    const logEl = document.getElementById('log');
-    //const funcBase = "/__/functions/v1/api";
-    // const funcBase="/api";
-    const funcBase = "http://127.0.0.1:5010/cc-lab-project-attendance/us-central1/api";
 
+    const PROJECT_ID = 'cc-lab-project-attendance';
+    const DEFAULT_FUNCTIONS_PORT = 5010;
 
-    function log(msg) {
-      logEl.innerText = (new Date().toLocaleTimeString()) + ' - ' + msg + '\n' + logEl.innerText;
+    function detectFuncBase(){
+      const host = location.hostname;
+      if (host === '127.0.0.1' || host === 'localhost' || host.startsWith('192.168.') || host.startsWith('10.')) {
+        return `http://${host}:${DEFAULT_FUNCTIONS_PORT}/${PROJECT_ID}/us-central1/api`;
+      }
+      return `https://us-central1-${PROJECT_ID}.cloudfunctions.net/api`;
     }
+    const FUNC_BASE = detectFuncBase();
+
+    const $ = (id)=>document.getElementById(id);
+    const logEl = $('log');
+    function log(m){ logEl.innerText = new Date().toLocaleTimeString()+' - '+m+'\n'+logEl.innerText; }
+
+    // restore saved info
+    $('studentName').value = localStorage.getItem('studentName') || '';
+    $('studentId').value   = localStorage.getItem('studentId') || '';
+    if ($('studentName').value && $('studentId').value) $('startBtn').classList.remove('grey');
+
+    $('saveBtn').onclick = ()=>{
+      const name = $('studentName').value.trim();
+      const id   = $('studentId').value.trim();
+      if(!name||!id){ alert('Enter both name & id'); return; }
+      localStorage.setItem('studentName', name);
+      localStorage.setItem('studentId', id);
+      $('startBtn').classList.remove('grey');
+      log('Saved: '+id+' / '+name);
+    };
 
     let scanner;
-    document.getElementById('startBtn').onclick = async () => {
-      try {
-        scanner = new QrScanner(video, result => onDecoded(result));
+    const video = $('video');
+
+    $('startBtn').onclick = async ()=>{
+      if ($('startBtn').classList.contains('grey')) { alert('Save name & id first'); return; }
+      try{
+        scanner = new QrScanner(video, r=>onDecoded(r), { returnDetailedScanResult:false });
         await scanner.start();
         log('Scanner started. Point camera at QR.');
-      } catch (e) {
-        log('Camera error: ' + e);
+      }catch(e){
+        console.error(e);
+        log('Camera error: '+e);
+        alert('Camera error. Allow camera permission in site settings.');
       }
     };
-    document.getElementById('stopBtn').onclick = () => { if (scanner) scanner.stop(); log('Scanner stopped.'); };
 
-    async function onDecoded(decoded) {
-      log('QR decoded: ' + decoded);
-      try {
-        const payload = JSON.parse(decoded);
-        const sessionToken = payload.sessionToken;
-        await callCheckin(sessionToken);
-      } catch (err) {
-        log('Invalid QR payload: ' + err);
-      } finally { if (scanner) scanner.stop(); }
+    $('stopBtn').onclick = async ()=>{
+      if(scanner){ await scanner.stop(); scanner.destroy(); scanner=null; }
+      log('Camera stopped.');
+    };
+
+    async function onDecoded(decodedText){
+      log('QR: '+decodedText);
+      try{
+        const obj = JSON.parse(decodedText);
+        if (!obj.sessionToken) throw new Error('no sessionToken');
+        await checkin(obj.sessionToken);
+      }catch(e){
+        log('Invalid QR payload: '+e.message);
+      }finally{
+        if(scanner){ await scanner.stop(); scanner.destroy(); scanner=null; log('Scanner paused after decode.'); }
+      }
     }
 
-    async function callCheckin(sessionToken) {
-      const body = { sessionToken, studentId: "student_demo_1" }; // emulator demo studentId
-      log('Calling checkin...');
-      try {
-        const r = await fetch(funcBase + "/checkin", {
-          method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+    async function getLocation(){
+      return new Promise((res,rej)=>{
+        navigator.geolocation.getCurrentPosition(
+          p=>res({lat:p.coords.latitude,lng:p.coords.longitude}),
+          e=>rej(e),
+          { enableHighAccuracy:true, timeout:9000 }
+        );
+      });
+    }
+
+    async function checkin(sessionToken){
+      const studentId = $('studentId').value.trim();
+      const studentName = $('studentName').value.trim();
+      if(!studentId){ alert('Enter student id'); return; }
+
+      log('Preparing checkin...');
+      let loc=null;
+      try{ loc = await getLocation(); log(`Location: ${loc.lat.toFixed(5)},${loc.lng.toFixed(5)}`); }
+      catch{ log('Location denied/unavailable'); }
+
+      try{
+        const r = await fetch(FUNC_BASE+'/checkin', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ sessionToken, studentId, studentName, location:loc })
         });
-        const j = await r.json();
-        if (r.ok) log('Checkin OK: ' + JSON.stringify(j));
-        else log('Checkin error: ' + JSON.stringify(j));
-      } catch (e) {
-        log('Network error: ' + e);
+        const text = await r.text();
+        let j; try{ j = JSON.parse(text); } catch{ console.error(text); alert('Server returned non-JSON. Check functions.'); return; }
+        if(!j.ok){ log('Checkin failed: '+JSON.stringify(j)); alert('Checkin failed: '+(j.error||'unknown')); return; }
+        log('Checkin OK: '+JSON.stringify(j.record||j));
+        alert('Checkin OK: '+(j.verified?'Verified ✅':'Marked (unverified) ⚠️'));
+      }catch(e){
+        log('Network error: '+e.message);
+        alert('Network error: '+e.message);
       }
     }
 
-    document.getElementById('manualBtn').onclick = () => {
-      const token = document.getElementById('tokenInput').value.trim();
-      if (!token) { alert('Paste token'); return; }
-      callCheckin(token);
+    $('manualBtn').onclick = ()=>{
+      const t = $('manualToken').value.trim();
+      if(!t){ alert('Paste token'); return; }
+      checkin(t);
     };
+
+    log('Scanner ready. FUNC_BASE='+FUNC_BASE);
   </script>
 </body>
 </html>

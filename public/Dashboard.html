@@ -1,87 +1,244 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Attendance Dashboard</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Attendance Dashboard</title>
+    <link rel="stylesheet" href="style.css"> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>📊 Attendance Dashboard</h1>
-    <canvas id="attendanceChart" class="chart-container"></canvas>
+    <div class="container">
+        <div class="card">
+            <h1>📊 Attendance Dashboard</h1>
+            <div class="small">Paste session token to view one session (recommended) or leave empty to view all recent attendance records.</div>
 
-    <h2>Student Attendance Records</h2>
-    <table id="dataTable" border="1" style="border-collapse: collapse; width:100%; text-align:center;">
-      <thead>
-        <tr><th>Student ID</th><th>Course ID</th><th>Status</th><th>Time</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+            <div class="row" style="align-items:center;gap:8px">
+                <div style="flex:1">
+                    <label>Session Token</label>
+                    <input id="sessionToken" type="text" placeholder="Paste token from Teacher UI (or leave blank)">
+                </div>
+                <div style="min-width:280px"> <label style="visibility:hidden">.</label>
+                    <div>
+                        <button id="btnRefresh" class="btn">Refresh Data</button>
+                        <button id="btnAuto" class="btn grey">Load Recent Session</button>
+                        <button id="exportExcel" class="btn grey">Export to Excel (CSV)</button> 
+                    </div>
+                </div>
+            </div>
 
-    <button onclick="loadData()">Refresh Data</button>
-  </div>
+            <div style="margin-top:18px;">
+                <canvas id="attendanceChart" class="chart-container" width="700" height="380"></canvas>
+                <div id="summaryText" style="text-align:center;margin-top:8px;color:var(--muted)">Overall Attendance Summary</div>
+            </div>
 
-  <script>
-    const funcBase = "http://127.0.0.1:5010/cc-lab-project-attendance/us-central1/api";
+            <h2 style="margin-top:18px">Student Attendance Records</h2>
+            <table id="dataTable" border="1" style="border-collapse: collapse; width:100%; text-align:center; font-size:14px;">
+                <thead style="background:#f7fafc">
+                    <tr>
+                        <th style="padding:8px">Student ID</th>
+                        <th>Student Name</th>
+                        <th>Course ID</th>
+                        <th>Status</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
 
-    async function loadData() {
-      try {
-        const res = await fetch(funcBase + "/getAttendance");
-        const data = await res.json();
+            <div class="log" id="logArea" style="margin-top:12px"></div>
+        </div>
 
-        const total = data.length;
-        const present = data.filter(a => a.status === "present").length;
-        const absent = total - present;
+        <footer>Cloud Attendance — Dashboard</footer>
+    </div>
 
-        renderChart(present, absent);
-        renderTable(data);
-      } catch (err) {
-        console.error("Error loading data:", err);
-        alert("Failed to fetch data.");
-      }
+<script>
+/* CONFIG: change if your functions emulator uses a different port */
+const PROJECT_ID = 'cc-lab-project-attendance';
+const DEFAULT_FUNCTIONS_PORT = 5010; // change if needed
+
+function detectFuncBase() {
+    const host = window.location.hostname;
+    if (host === '127.0.0.1' || host === 'localhost' || host.startsWith('192.168.') || host.startsWith('10.')) {
+        return `http://${host}:${DEFAULT_FUNCTIONS_PORT}/${PROJECT_ID}/us-central1/api`;
     }
+    return `https://us-central1-${PROJECT_ID}.cloudfunctions.net/api`;
+}
+const FUNC_BASE = detectFuncBase();
 
-    let chart;
-    function renderChart(present, absent) {
-      const ctx = document.getElementById("attendanceChart").getContext("2d");
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "pie",
+/* UI helpers */
+const logArea = document.getElementById('logArea');
+function log(msg, level='info') {
+    const p = document.createElement('div');
+    p.innerText = (new Date()).toLocaleTimeString() + ' - ' + msg;
+    if (level === 'err') p.style.color = 'red';
+    logArea.prepend(p);
+}
+
+/* Chart & table */
+let chart = null;
+function renderChart(present, absent) {
+    const ctx = document.getElementById('attendanceChart').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+        type: 'pie',
         data: {
-          labels: ["Present", "Absent"],
-          datasets: [{
-            data: [present, absent],
-            backgroundColor: ["#22c55e", "#ef4444"]
-          }]
+            labels: ['Present','Absent'],
+            datasets: [{ data: [present, absent], backgroundColor: ['#16a34a','#ef4444'] }]
         },
-        options: {
-          responsive: true,
-          plugins: {
-            title: { display: true, text: "Overall Attendance Summary" },
-            legend: { position: "bottom" }
-          }
-        }
-      });
-    }
+        options: { plugins: { legend: { position: 'bottom' } } }
+    });
+}
 
-    function renderTable(data) {
-      const tbody = document.querySelector("#dataTable tbody");
-      tbody.innerHTML = "";
-      data.forEach(r => {
-        const tr = document.createElement("tr");
+function renderTable(rows) {
+    const tbody = document.querySelector('#dataTable tbody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const time = r.timestamp ? new Date(r.timestamp).toLocaleString() : '';
+        const statusColor = r.status === 'present' ? 'green' : (r.status === 'present_unverified' ? '#b9770e' : 'red');
         tr.innerHTML = `
-          <td>${r.studentId}</td>
-          <td>${r.courseId}</td>
-          <td style="color:${r.status === 'present' ? 'green' : 'red'}">${r.status}</td>
-          <td>${new Date(r.timestamp).toLocaleString()}</td>
+            <td style="padding:6px">${r.studentId}</td>
+            <td>${r.studentName || ''}</td>
+            <td>${r.courseId || ''}</td>
+            <td style="color:${statusColor};font-weight:700">${r.status || ''}</td>
+            <td>${time}</td>
         `;
         tbody.appendChild(tr);
-      });
+    });
+}
+
+// ----------------------------------------------------
+// ✅ NEW FEATURE: Export Table to CSV Function
+// ----------------------------------------------------
+function exportTableToCSV(filename) {
+    const table = document.getElementById("dataTable");
+    if (!table) return alert("Attendance table not found.");
+
+    let csv = [];
+    const rows = table.querySelectorAll("tr");
+    
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const cols = row.querySelectorAll("td, th");
+        let csvRow = [];
+        
+        for (let j = 0; j < cols.length; j++) {
+            let data = cols[j].innerText.trim().replace(/"/g, '""');
+            csvRow.push('"' + data + '"');
+        }
+        
+        csv.push(csvRow.join(","));
     }
 
-    loadData();
-  </script>
+    const csvFile = csv.join("\n");
+    const blob = new Blob([csvFile], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    
+    link.download = filename || "attendance_data.csv";
+    link.href = URL.createObjectURL(blob);
+    link.style.display = "none";
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    log(`Exported data to ${link.download}`);
+}
+// ----------------------------------------------------
+
+/* Main: fetch attendance + roster */
+async function loadData() {
+    const token = document.getElementById('sessionToken').value.trim();
+    log('Requesting attendance & roster from functions...');
+    try {
+        const r = await fetch(FUNC_BASE + '/getAttendanceWithRoster');
+        const txt = await r.text();
+        let data;
+        try { data = JSON.parse(txt); }
+        catch(e) {
+            log('Invalid JSON from functions. Response starts: ' + txt.slice(0,200), 'err');
+            alert('Server returned invalid JSON. Check functions emulator logs.');
+            return;
+        }
+
+        const attendance = Array.isArray(data.attendance) ? data.attendance : [];
+        const roster = Array.isArray(data.roster) ? data.roster : [];
+
+        // If token provided: compute present/absent using roster
+        let rows = [];
+        if (token) {
+            // Map latest attendance per student for this session
+            const sessionAtt = attendance.filter(a => a.sessionId === token);
+            const presentSet = new Set(sessionAtt.filter(a => a.status && a.status.startsWith('present')).map(a => a.studentId));
+            
+            // For each roster student show present/absent
+            roster.forEach(s => {
+                if (presentSet.has(s.studentId)) {
+                    // find latest rec for that student/session
+                    const recs = sessionAtt.filter(a => a.studentId === s.studentId).sort((x,y)=>y.timestamp - x.timestamp);
+                    const rec = recs[0] || {};
+                    rows.push({ studentId: s.studentId, studentName: s.studentName || '', courseId: rec.courseId || '', status:'present', timestamp: rec.timestamp });
+                } else {
+                    rows.push({ studentId: s.studentId, studentName: s.studentName || '', courseId:'', status:'absent', timestamp: null });
+                }
+            });
+            const presentCount = rows.filter(r=>r.status==='present').length;
+            const absentCount = rows.filter(r=>r.status==='absent').length;
+            document.getElementById('summaryText').innerText = `Overall Attendance Summary (${presentCount}/${roster.length || presentCount+absentCount} Present)`;
+            renderChart(presentCount, absentCount);
+            renderTable(rows);
+            log(`Loaded session ${token}: ${presentCount} present, ${absentCount} absent (roster ${roster.length})`);
+        } else {
+            // No token: show all attendance records (recent first)
+            const recs = attendance.sort((a,b)=>b.timestamp - a.timestamp).map(a => ({...a}));
+            const presentRecs = recs.filter(r=>r.status && r.status.startsWith('present')).length;
+            
+            // FIX: Render chart with Total Records found vs 0 Absent (since absent calculation requires Roster)
+            renderChart(presentRecs, 0); 
+            renderTable(recs);
+            document.getElementById('summaryText').innerText = `Recent Attendance Records (${presentRecs}/${recs.length} Total Records)`;
+            log(`Loaded ${attendance.length} attendance records and ${roster.length} roster entries.`);
+        }
+    } catch(err) {
+        console.error(err);
+        log('Fetch failed: ' + err.message, 'err');
+        alert('Failed to fetch from functions: ' + err.message);
+    }
+}
+
+/* Try to load most recent session token (optional) */
+async function loadLatestSessionToken() {
+    log('Attempting to fetch latest sessions (if endpoint available)...');
+    try {
+        const res = await fetch(FUNC_BASE + '/listSessions');
+        const txt = await res.text();
+        try {
+            const json = JSON.parse(txt);
+            if (Array.isArray(json.sessions) && json.sessions.length) {
+                document.getElementById('sessionToken').value = json.sessions[0].token;
+                log('Autofilled latest session token.');
+            } else log('listSessions returned no sessions.');
+        } catch(e) {
+            log('listSessions not available or invalid.', 'err');
+        }
+    } catch(e) {
+        log('listSessions call failed: ' + e.message, 'err');
+    }
+}
+
+/* events */
+document.getElementById('btnRefresh').onclick = loadData;
+document.getElementById('btnAuto').onclick = async () => { await loadLatestSessionToken(); loadData(); };
+
+// ✅ Export button event attached
+document.getElementById('exportExcel').onclick = () => {
+    const sessionToken = document.getElementById('sessionToken').value.trim();
+    const filename = `Attendance_${sessionToken || 'All_Records'}_${new Date().toISOString().slice(0, 10)}.csv`;
+    exportTableToCSV(filename);
+};
+
+/* initial load */
+loadData();
+</script>
 </body>
 </html>
